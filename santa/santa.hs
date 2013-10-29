@@ -79,20 +79,26 @@ deliverToys :: Int -> IO ()
 deliverToys id = putStr ("Reindeer" ++ show id ++ " delivering toys.\n")
 
 santa :: Group -> Group -> IO ()
-santa elfs reindeers = do
+santa elves reindeers = do
   putStrLn "--------"
-  (task, (inGate, outGate)) <- atomically (
-    (chooseGroup reindeers "deliver toys") `orElse`
-    (chooseGroup elfs "meet in my study")
-    )
-  putStrLn $ "Ho! Ho! Ho! Let's " ++ task
-  operateGate inGate
-  operateGate outGate
+  choose [(awaitGroup reindeers, run "deliver toys"),
+          (awaitGroup elves, run "meet in my study")]
   where
-    chooseGroup :: Group -> String -> STM (String, (Gate, Gate))
-    chooseGroup gp task = do gates <- awaitGroup gp
-                             return (task, gates)
+    run :: String -> (Gate, Gate) -> IO ()
+    run task (inGate, outGate) = do
+      putStrLn $ "Ho! Ho! Ho! Let's " ++ task
+      operateGate inGate
+      operateGate outGate
 
+choose :: [(STM a, a -> IO ())] -> IO ()
+choose choices = do
+  act <- atomically (foldr1 orElse actions)
+  act
+  where
+    actions :: [STM (IO ())]
+    actions = [do val <- guard
+                  return (rhs val)
+              | (guard, rhs) <- choices]
 
 main = do
   elfGroup <- newGroup 3
