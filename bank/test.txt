@@ -1,0 +1,2 @@
+Haskell rules.
+I just read Haskell rules.
